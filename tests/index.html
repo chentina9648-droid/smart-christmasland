@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>Model &amp; Data Provenance Tests</title><link rel="icon" href="data:," /></head>
+  <body style="font-family: monospace; background: #111; color: #eee; padding: 20px">
+    <h1>Model &amp; Data Provenance Tests</h1>
+    <pre id="out"></pre>
+    <script>
+      window.__assert = (c, m) => { if (!c) throw new Error('FAIL: ' + (m || 'assertion')); };
+      const log = console.log;
+      console.log = (...a) => { document.getElementById('out').textContent += a.join(' ') + '\n'; log(...a); };
+      window.onerror = (m) => { document.getElementById('out').textContent += '❌ ' + m + '\n'; };
+    </script>
+    <script src="../js/data-sources.js"></script>
+    <script src="../js/model.js"></script>
+    <script>
+      window.module = { exports: {} };
+      window.require = (p) => {
+        if (p === 'assert') return window.__assert;
+        if (p.includes('data-sources')) return window.WasteDataSources;
+        return window.WasteModel;
+      };
+    </script>
+    <script src="model.test.js"></script>
+  </body>
+</html>

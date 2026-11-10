@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Smart Christmasland – Waste Reduction Simulator | New Taipei City</title>
+    <meta
+      name="description"
+      content="Interactive 3D map simulator exploring how reusable cups, eco-packaging, volunteer sorting and smart collection could reduce festival waste at New Taipei City Christmasland. Anchored to official statistics with transparent model assumptions."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <link href="css/style.css" rel="stylesheet" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎄</text></svg>" />
+  </head>
+  <body>
+    <header class="nav">
+      <a href="#top" class="brand">🎄 Smart Christmasland</a>
+      <nav>
+        <a href="#simulator">Simulator</a>
+        <a href="#sdgs">SDGs</a>
+        <a href="#youth">Youth Collab</a>
+        <a href="#case-study-ph">PH Case Study</a>
+        <a href="#method">Information &amp; Data</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="snow" aria-hidden="true"></div>
+        <div class="hero-inner">
+          <p class="eyebrow">New Taipei City · Banqiao · Christmasland</p>
+          <h1>Light up the season, <span class="grad">not the landfill.</span></h1>
+          <p class="lead">
+            Explore how visitor crowds, bin placement, reusable cups, eco-packaging and collection schedules
+            change waste outcomes at one of Taiwan's biggest winter festivals — on a real 3D map.
+          </p>
+          <div class="hero-cta">
+            <a class="btn primary" href="#simulator" id="cta-simulate">Start simulating</a>
+            <a class="btn ghost" href="#method" id="cta-data">Data Provenance &amp; Audit</a>
+          </div>
+          <p class="disclaimer-pill">
+            📊 Anchored to <b>Official MOENV / NTPC Statistics</b> · Scenario outputs are <b>Simulated Model Estimates</b> (not official festival measurements).
+          </p>
+        </div>
+      </section>
+
+      <section id="simulator" class="sim">
+        <div class="section-head">
+          <h2>Festival Waste Simulator</h2>
+          <p>Select a scenario (Baseline, Smart Green, or Sensitivity Analysis), then tweak parameters or drag 🗑️ bins on the 3D map.</p>
+        </div>
+
+        <div class="scenario-tabs" role="tablist">
+          <button class="tab active" data-scenario="baseline" id="tab-baseline" role="tab">🎆 Baseline (一般活動模式)</button>
+          <button class="tab" data-scenario="smart" id="tab-smart" role="tab">♻️ Smart Green (智慧綠色減量)</button>
+          <button class="tab" data-scenario="sensitivity" id="tab-sensitivity" role="tab">📊 Sensitivity Analysis (敏感度分析)</button>
+          <button class="tab" data-scenario="normal" id="tab-normal" role="tab">🌙 Weekday Ref (平日參考)</button>
+        </div>
+        <p class="scenario-desc" id="scenario-desc"></p>
+
+        <div class="sensitivity-bar panel" id="sensitivity-bar" hidden>
+          <div class="sens-head">
+            <div>
+              <strong>Sensitivity Analysis Presets (敏感度分析三情境假設)</strong>
+              <span class="tag assumption">Model Assumption Bounds</span>
+            </div>
+            <div class="sens-btns">
+              <button class="btn small sens-tier-btn" data-tier="conservative" id="btn-sens-conservative">Conservative (保守假設)</button>
+              <button class="btn small sens-tier-btn active" data-tier="base" id="btn-sens-base">Base (基準假設)</button>
+              <button class="btn small sens-tier-btn" data-tier="aggressive" id="btn-sens-aggressive">Aggressive (積極假設)</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="sens-table" id="sens-summary-table">
+              <thead>
+                <tr>
+                  <th>Scenario / Tier</th>
+                  <th>Cup Reuse / Loss</th>
+                  <th>Eco-Pkg Cut</th>
+                  <th>Total Generated</th>
+                  <th>Source Reduction</th>
+                  <th>Recycled Waste</th>
+                  <th>Residual Waste</th>
+                  <th>Residual Reduction</th>
+                  <th>Overflow / Litter</th>
+                </tr>
+              </thead>
+              <tbody id="sens-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="sim-grid">
+          <aside class="panel controls">
+            <h3>Simulation Controls <span class="tag assumption">Adjustable Model</span></h3>
+
+            <label for="in-visitors">Visitors per evening <output id="out-visitors"></output></label>
+            <input type="range" id="in-visitors" min="5000" max="200000" step="5000" />
+
+            <label for="in-reuse">Cup substitution (self-brought + Ucup) <output id="out-reuse"></output></label>
+            <input type="range" id="in-reuse" min="0" max="100" step="5" />
+
+            <label for="in-pkg-cut">Eco-packaging source cut <output id="out-pkg-cut"></output></label>
+            <input type="range" id="in-pkg-cut" min="0" max="50" step="5" />
+
+            <label for="in-collect">Collections per evening <output id="out-collect"></output></label>
+            <input type="range" id="in-collect" min="1" max="8" step="1" />
+
+            <label class="check"><input type="checkbox" id="in-sorting" /> Stationed volunteer sorting guides</label>
+
+            <div class="bin-tools">
+              <p>Waste stations: <b id="bin-count">0</b> · Cap: <b id="out-station-cap">125</b> kg/pickup</p>
+              <div class="row">
+                <button class="btn small" id="btn-add-bin">+ Add bin</button>
+                <button class="btn small ghost" id="btn-remove-bin">− Remove last</button>
+                <button class="btn small ghost" id="btn-reset-bins">Reset</button>
+              </div>
+
+              <label for="in-vol" class="sub-label">Station volume (L, 240L bins) <output id="out-vol"></output></label>
+              <input type="range" id="in-vol" min="480" max="3840" step="240" />
+
+              <label for="in-density" class="sub-label">Bulk density (kg/L, assumption) <output id="out-density"></output></label>
+              <input type="range" id="in-density" min="0.030" max="0.150" step="0.005" />
+
+              <label for="in-compact" class="sub-label">Compaction ratio (×, assumption) <output id="out-compact"></output></label>
+              <input type="range" id="in-compact" min="1.0" max="4.0" step="0.5" />
+
+              <label for="in-radius" class="sub-label">Capture radius &amp; rate <output id="out-radius"></output></label>
+              <input type="range" id="in-radius" min="80" max="300" step="10" />
+
+              <label for="in-cap-eff" class="sub-label">Capture efficiency scalar <output id="out-cap-eff"></output></label>
+              <input type="range" id="in-cap-eff" min="50" max="100" step="5" />
+
+              <p class="hint">Tip: click "+ Add bin" then click on the map to place a station. Drag stations to relocate.</p>
+            </div>
+
+            <div class="layer-tools">
+              <label class="check"><input type="checkbox" id="lyr-heat" checked /> Waste heatmap</label>
+              <label class="check"><input type="checkbox" id="lyr-3d" checked /> 3D buildings</label>
+            </div>
+          </aside>
+
+          <div class="map-wrap panel">
+            <div id="map" aria-label="Map of Christmasland area"></div>
+            <div class="map-legend">
+              <span><i class="dot ok"></i>&lt;70%</span>
+              <span><i class="dot warn"></i>70–100%</span>
+              <span><i class="dot bad"></i>Overflow</span>
+              <span><i class="dot spot"></i>Activity hotspot</span>
+            </div>
+            <div class="map-badge">Simulated Model · Official Zones (Citizen Plaza / Station / Wanping Park) · Map © OpenStreetMap</div>
+          </div>
+        </div>
+
+        <div class="kpis kpis-7">
+          <div class="kpi" id="kpi-waste">
+            <p>Total Waste Generated <span class="tag-mini">模擬推估</span></p>
+            <b>–</b>
+            <small>kg / evening (0.085 kg/p base)</small>
+          </div>
+          <div class="kpi" id="kpi-source-red">
+            <p>Source Waste Reduction <span class="tag-mini">源頭減量</span></p>
+            <b>–</b>
+            <small id="kpi-source-red-sub">0 kg vs. Baseline</small>
+          </div>
+          <div class="kpi" id="kpi-recycled">
+            <p>Recycled Waste <span class="tag-mini">分類回收</span></p>
+            <b>–</b>
+            <small id="kpi-recycled-sub">diversion rate</small>
+          </div>
+          <div class="kpi" id="kpi-landfill">
+            <p>Residual Waste <span class="tag-mini">最終殘餘</span></p>
+            <b>–</b>
+            <small>kg / evening (non-recycled)</small>
+          </div>
+          <div class="kpi" id="kpi-reduction">
+            <p>Residual Waste Reduction <span class="tag-mini">殘餘減量</span></p>
+            <b>–</b>
+            <small id="kpi-reduction-sub">(Baseline − Scenario) ÷ Baseline</small>
+          </div>
+          <div class="kpi" id="kpi-overflow">
+            <p>Overflow Waste <span class="tag-mini">滿溢量</span></p>
+            <b>–</b>
+            <small id="kpi-overflow-sub">0 stations overflowing</small>
+          </div>
+          <div class="kpi" id="kpi-litter">
+            <p>Litter Waste <span class="tag-mini">未攔截散落</span></p>
+            <b>–</b>
+            <small id="kpi-litter-sub">kg uncaptured on plaza</small>
+          </div>
+          <div class="kpi" id="kpi-fill">
+            <p>Avg. Peak Bin Fill <span class="tag-mini">滿載率</span></p>
+            <b>–</b>
+            <small>before each pickup</small>
+          </div>
+          <div class="kpi" id="kpi-risk">
+            <p>Overflow &amp; Litter Risk</p>
+            <b>–</b>
+            <small id="kpi-risk-sub">bins overflowing</small>
+          </div>
+        </div>
+
+        <div class="charts">
+          <div class="panel chart">
+            <h3>Scenario Comparison: Recycled vs. Residual <span class="tag assumption">Simulated Model</span></h3>
+            <canvas id="chart-compare"></canvas>
+          </div>
+          <div class="panel chart">
+            <h3>Waste Stream Composition (kg) <span class="tag assumption">Simulated Model</span></h3>
+            <canvas id="chart-mix"></canvas>
+          </div>
+          <div class="panel chart wide">
+            <h3>Station Peak Fill Level Before Pickup (%) <span class="tag assumption">Simulated Model</span></h3>
+            <canvas id="chart-bins"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section id="sdgs" class="sdgs">
+        <div class="section-head"><h2>Why it matters: the SDGs</h2></div>
+        <div class="cards">
+          <article class="card sdg11">
+            <span class="num">11</span>
+            <h3>Sustainable Cities &amp; Communities</h3>
+            <p>Mega-events stress public space. Smart bin placement and frequent collection keep plazas clean, safe and walkable for hundreds of thousands of people — target 11.6 focuses on reducing cities' per-capita environmental impact, including municipal waste management.</p>
+          </article>
+          <article class="card sdg12">
+            <span class="num">12</span>
+            <h3>Responsible Consumption &amp; Production</h3>
+            <p>Single-use cups, food boxes and skewers are the festival's footprint. Reusable-cup deposit systems and sorting stations put target 12.5 — substantially reducing waste through prevention, reduction, recycling and reuse — into everyday practice.</p>
+          </article>
+          <article class="card sdg17">
+            <span class="num">17</span>
+            <h3>Partnerships for the Goals</h3>
+            <p>No city solves waste alone. Governments, vendors, NGOs, schools and international youth networks sharing data and ideas is exactly what SDG 17 calls for.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="youth" class="youth">
+        <div class="youth-inner">
+          <h2>🇹🇼 Taiwan × 🇵🇭 Philippines Youth Collaboration</h2>
+          <p>Both island nations host vibrant festivals — from Christmasland in New Taipei to the Philippines' famously long Christmas season and fiestas like Sinulog and Ati-Atihan. Both face the same question: how do we celebrate without leaving a trail of plastic?</p>
+          <div class="ideas">
+            <div><h4>🔁 Swap playbooks</h4><p>Share reusable-cup, deposit and sorting-station designs between festival teams.</p></div>
+            <div><h4>📊 Co-collect data</h4><p>Run joint bin-audit days and calibrate this simulator's assumption parameters with field measurements.</p></div>
+            <div><h4>🎨 Design campaigns</h4><p>Bilingual (English / 中文 / Filipino) signage and social content made by youth, for youth.</p></div>
+            <div><h4>🤝 Online exchange</h4><p>Virtual hackathons to improve this open-source model and adapt it to a Philippine festival site.</p></div>
+          </div>
+          <a class="btn primary" href="#simulator" id="cta-try">Try the Smart Green scenario</a>
+        </div>
+      </section>
+
+      <section id="case-study-ph" class="case-study-ph">
+        <div class="section-head">
+          <p class="eyebrow">🇵🇭 Davao City &amp; Ateneo de Davao University · Qualitative Policy Reference</p>
+          <h2>International Case Study: Waste Reduction in the Philippines</h2>
+          <p>
+            Examining how municipal solid waste ordinances in <b>Davao City</b> and campus-level zero-waste practices at
+            <b>Ateneo de Davao University (Ecoteneo)</b> operate in practice — and how their lessons can inspire sustainable event design at Smart Christmasland.
+          </p>
+          <p class="disclaimer-pill ph-disclaimer">
+            ⚖️ <b>Data &amp; Modeling Boundary:</b> This section presents a qualitative international case study. No Philippine statistics or invented reduction percentages are inserted into the Taiwan waste-generation model.
+          </p>
+        </div>
+
+        <div class="ph-grid">
+          <!-- Part 1: Davao City -->
+          <article class="panel ph-card city-card">
+            <div class="ph-card-head">
+              <span class="ph-icon" aria-hidden="true">🏛️</span>
+              <div>
+                <span class="badge cat-official">City-Level Governance · Davao City</span>
+                <h3>1. Davao City — City-Level Waste Management</h3>
+              </div>
+            </div>
+
+            <p class="ph-intro">
+              Davao City enforces source-level solid waste management across households, commercial establishments, and public spaces through municipal ordinances administered by the City Environment and Natural Resources Office (CENRO).
+            </p>
+
+            <div class="ph-subblock">
+              <h4>🗂️ Mandatory Waste Segregation at Source (4 Categories)</h4>
+              <p class="muted-sm">Under the city's ecological solid waste framework, waste generators must separate waste at source into four distinct streams:</p>
+              <div class="stream-grid-4">
+                <div class="stream-chip bio">
+                  <span class="s-ico">🍂</span>
+                  <div>
+                    <b>1. Biodegradable</b>
+                    <small>Compostable food scraps, garden trimmings &amp; organic waste</small>
+                  </div>
+                </div>
+                <div class="stream-chip rec">
+                  <span class="s-ico">♻️</span>
+                  <div>
+                    <b>2. Recyclable</b>
+                    <small>Recoverable paper, cardboard, bottles, cans &amp; clean plastics</small>
+                  </div>
+                </div>
+                <div class="stream-chip res">
+                  <span class="s-ico">🗑️</span>
+                  <div>
+                    <b>3. Residual Waste</b>
+                    <small>Non-recyclable, non-compostable sanitary &amp; mixed disposal waste</small>
+                  </div>
+                </div>
+                <div class="stream-chip spc">
+                  <span class="s-ico">⚠️</span>
+                  <div>
+                    <b>4. Special Waste</b>
+                    <small>Household hazardous, electronic (e-waste), bulbs &amp; chemical containers</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <ul class="ph-list">
+              <li>
+                <span class="li-ico">🛍️</span>
+                <div>
+                  <b>Retail Packaging Shifts:</b> Some commercial establishments and supermarkets use paper bags or actively encourage shoppers to bring reusable eco-bags.
+                </div>
+              </li>
+              <li>
+                <span class="li-ico">📋</span>
+                <div>
+                  <b>Implementation &amp; Compliance Challenges:</b> Despite formal ordinances, consistent enforcement, commercial compliance (such as updating establishment Solid Waste Management Plans required by CENRO), and sustained public awareness remain ongoing operational challenges.
+                </div>
+              </li>
+            </ul>
+
+            <div class="legal-box">
+              <h4>⚖️ Important Legal Distinction (Statutory Scope vs. Implementation)</h4>
+              <ul>
+                <li>
+                  <b>Ecological Solid Waste &amp; Segregation — City Ordinance No. 0361-10 (as amended by Ordinance No. 0987-22):</b>
+                  Governs ecological solid waste management, mandatory four-category waste segregation at source, collection schedules, and establishment solid waste management plans.
+                </li>
+                <li>
+                  <b>Regulation of Single-Use Plastics — City Ordinance No. 0500-21:</b>
+                  Separately regulates the sale, distribution, and use of regulated single-use plastic items in Davao City. Single-use plastic rules derive from <code>Ordinance No. 0500-21</code>, <em>not</em> Ordinances <code>0361-10</code> or <code>0987-22</code>.
+                </li>
+                <li>
+                  <b>Scope &amp; Verification Note:</b> These ordinances regulate specific single-use plastic items and segregation duties; they do not establish an unverified blanket city-wide Styrofoam ban, and legal enactment must be distinguished from real-world enforcement challenges.
+                </li>
+              </ul>
+            </div>
+          </article>
+
+          <!-- Part 2: Ateneo de Davao University -->
+          <article class="panel ph-card campus-card">
+            <div class="ph-card-head">
+              <span class="ph-icon" aria-hidden="true">🎓</span>
+              <div>
+                <span class="badge cat-research">Campus-Level Living Lab · AdDU Ecoteneo</span>
+                <h3>2. Ateneo de Davao University — Campus-Level Practices</h3>
+              </div>
+            </div>
+
+            <p class="ph-intro">
+              Through the <b>Ecoteneo</b> environmental program and official university policy (<code>Policy No. 2018-071</code>), Ateneo de Davao University (AdDU) operates a comprehensive institutional sustainability framework on campus:
+            </p>
+
+            <div class="practice-cards">
+              <div class="p-item">
+                <span class="p-ico">🚫</span>
+                <div>
+                  <b>Ban on Single-Use Plastics on Campus</b>
+                  <p>Prohibits single-use plastic water bottles, plastic straws, stirrers, disposable utensils, and plastic bags in campus food courts, offices, and university events.</p>
+                </div>
+              </div>
+              <div class="p-item">
+                <span class="p-ico">🥤</span>
+                <div>
+                  <b>Reusable Tumblers &amp; Food Containers</b>
+                  <p>Encourages students, faculty, and guests to bring personal tumblers and reusable food containers (`baonan`), supported by campus water refilling stations.</p>
+                </div>
+              </div>
+              <div class="p-item">
+                <span class="p-ico">👜</span>
+                <div>
+                  <b>Eco-Bags &amp; Reusable Alternatives</b>
+                  <p>Promotes cloth eco-bags and washable serviceware across campus concessions to eliminate disposable take-out packaging at the source.</p>
+                </div>
+              </div>
+              <div class="p-item">
+                <span class="p-ico">🗂️</span>
+                <div>
+                  <b>Campus-Wide Waste Segregation</b>
+                  <p>Deploys standardized, clearly labeled multi-stream sorting bins aligned with municipal categories to prevent cross-contamination.</p>
+                </div>
+              </div>
+              <div class="p-item">
+                <span class="p-ico">🌱</span>
+                <div>
+                  <b>Composting &amp; Campus Gardening</b>
+                  <p>Diverts segregated food scraps and yard waste into composting systems that support campus gardening and green spaces.</p>
+                </div>
+              </div>
+              <div class="p-item">
+                <span class="p-ico">💧</span>
+                <div>
+                  <b>Water &amp; Energy Conservation</b>
+                  <p>Pairs solid-waste prevention with efficient energy use and water conservation mandates under university sustainability guidelines.</p>
+                </div>
+              </div>
+              <div class="p-item">
+                <span class="p-ico">🧹</span>
+                <div>
+                  <b>Clean-As-You-Go (CLAYGO) Practices</b>
+                  <p>Instills a self-busing behavioral norm where diners clear their own tables and sort items at designated stations immediately after eating.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="model-callout">
+              <h4>🎪 How Campus Practices Serve as a Model for Sustainable Event Management</h4>
+              <p>
+                A university campus with thousands of daily diners functions like a semi-enclosed festival zone. Ecoteneo demonstrates that combining <b>upstream vendor rules</b> (single-use plastic restrictions), <b>convenient refill &amp; container habits</b>, <b>CLAYGO peer norms</b>, and <b>clearly labeled multi-stream bins</b> reduces sorting confusion before waste ever reaches municipal collection trucks — offering a practical operational template for high-footfall events like New Taipei City Christmasland.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <!-- Part 3: Connection & Adaptation Table -->
+        <div class="panel ph-connect">
+          <div class="ph-connect-head">
+            <div>
+              <h3>3. Connecting the Philippines Case to Smart Christmasland</h3>
+              <p class="muted-sm">
+                Mapping documented practices in Davao City &amp; Ateneo de Davao University to proposed policy and operational applications at New Taipei City Christmasland.
+              </p>
+            </div>
+            <div class="legend-pills">
+              <span class="badge status-pass">🇵🇭 Documented Practice in PH</span>
+              <span class="badge cat-assumption">🎄 Proposed Application (Suggestion, Not Verified Outcome)</span>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="sens-table ph-comp-table" id="ph-comparison-table">
+              <thead>
+                <tr>
+                  <th>Philippines Practice <span class="badge status-pass">Existing PH Practice</span></th>
+                  <th>Possible Smart Christmasland Application <span class="badge cat-assumption">Proposed Suggestion</span></th>
+                  <th>Operational Mechanism &amp; Evidence Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>🗂️ Waste segregation at source</b><br /><small class="muted">Davao 4-stream mandate (Ord. 0361-10 / 0987-22) &amp; AdDU bins</small></td>
+                  <td><b>Clearly labeled smart sorting stations</b><br /><small class="muted">Multi-stream festival stations with clear visual signage &amp; volunteer guides</small></td>
+                  <td><span class="badge assump-yes">Proposed Suggestion</span> Prevents recyclable cups and paper trays from being contaminated by food liquids at festival hotspots.</td>
+                </tr>
+                <tr>
+                  <td><b>🥤 Reusable tumblers and containers</b><br /><small class="muted">AdDU Policy 2018-071 &amp; campus refilling culture</small></td>
+                  <td><b>Encourage reusable cups and food containers</b><br /><small class="muted">Expand self-brought cup discounts &amp; New Taipei Ucup deposit-return booths</small></td>
+                  <td><span class="badge assump-yes">Proposed Suggestion</span> Directly targets beverage cup generation at source (simulated via the <code>Cup substitution</code> slider).</td>
+                </tr>
+                <tr>
+                  <td><b>👜 Eco-bags and alternatives</b><br /><small class="muted">Davao Ord. 0500-21 &amp; campus reusable serviceware</small></td>
+                  <td><b>Encourage vendors to reduce disposable packaging</b><br /><small class="muted">Partner with market stalls &amp; nearby stores on lightweight/reusable packaging</small></td>
+                  <td><span class="badge assump-yes">Proposed Suggestion</span> Targets food-box and wrapper volume at night-market stalls (simulated via the <code>Eco-packaging cut</code> slider).</td>
+                </tr>
+                <tr>
+                  <td><b>🌱 Composting</b><br /><small class="muted">Ecoteneo organic waste diversion &amp; gardening</small></td>
+                  <td><b>Separate suitable food and organic waste</b><br /><small class="muted">Dedicated food-scrap &amp; liquid-drain buckets at Citizen Plaza food zones</small></td>
+                  <td><span class="badge assump-yes">Proposed Suggestion</span> Separates heavy wet food scraps from dry recyclables, improving paper/plastic recovery quality.</td>
+                </tr>
+                <tr>
+                  <td><b>🎓 Campus environmental education</b><br /><small class="muted">Ecoteneo student advocacy &amp; CLAYGO campaigns</small></td>
+                  <td><b>Event-wide environmental awareness campaign</b><br /><small class="muted">Bilingual CLAYGO prompts on main stage screens, light projections &amp; social media</small></td>
+                  <td><span class="badge assump-yes">Proposed Suggestion</span> Behavioral nudges to reduce plaza littering and encourage visitors to walk to the nearest sorting station.</td>
+                </tr>
+                <tr>
+                  <td><b>⚖️ Enforcement and compliance</b><br /><small class="muted">CENRO SWM plan inspections &amp; vendor monitoring</small></td>
+                  <td><b>Vendor guidelines and waste-sorting inspections</b><br /><small class="muted">Green vendor charter in stall contracts &amp; roving sorting-station checks</small></td>
+                  <td><span class="badge assump-yes">Proposed Suggestion</span> Bridges the gap between written event guidelines and actual on-site vendor &amp; visitor compliance.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Part 4: Sources & Transparency -->
+        <div class="panel ph-sources">
+          <h3>4. Case Study Sources &amp; Official Documentation (Philippines)</h3>
+          <p class="muted-sm">
+            All legal descriptions and institutional practices in this case study are cited directly from official Davao City Government and Ateneo de Davao University publications:
+          </p>
+          <ol class="ph-source-list">
+            <li>
+              <b>Davao City Ordinance No. 0361-10 / Amended by Ordinance No. 0987-22 (Official Information Flyer):</b>
+              <span class="badge cat-official">City Government of Davao</span><br />
+              <a href="https://www.davaocity.gov.ph/wp-content/uploads/2024/12/City-Ordinance-0361-10-Amended-0987-22-FLYER.pdf" target="_blank" rel="noopener noreferrer" class="prov-link">https://www.davaocity.gov.ph/wp-content/uploads/2024/12/City-Ordinance-0361-10-Amended-0987-22-FLYER.pdf</a>
+            </li>
+            <li>
+              <b>Davao City Ordinance No. 0987-22 (Full Legislative Text — Ecological Solid Waste Management Ordinance Amendment):</b>
+              <span class="badge cat-official">Sangguniang Panlungsod / Davao City</span><br />
+              <a href="https://lissp2.davaocity.gov.ph/uploads/items/6849/Ordinance%20No.%200987-22.pdf" target="_blank" rel="noopener noreferrer" class="prov-link">https://lissp2.davaocity.gov.ph/uploads/items/6849/Ordinance%20No.%200987-22.pdf</a>
+            </li>
+            <li>
+              <b>Davao City Single-Use Plastic Campaign &amp; City Ordinance No. 0500-21 (CEE Supports AdDU's Drive vs. Single-Use Plastics):</b>
+              <span class="badge cat-official">City Government of Davao</span><br />
+              <a href="https://davaocity.gov.ph/economy/cee-supports-addus-drive-vs-single-use-plastics/" target="_blank" rel="noopener noreferrer" class="prov-link">https://davaocity.gov.ph/economy/cee-supports-addus-drive-vs-single-use-plastics/</a>
+            </li>
+            <li>
+              <b>Ateneo de Davao University Official Policy on Single-Use Plastics and Efficient Energy Use (Memo / Policy 2018-071):</b>
+              <span class="badge cat-research">Ateneo de Davao University</span><br />
+              <a href="https://www.addu.edu.ph/wp-content/uploads/2019/11/2018-071-Policy-on-Single-Use-Plastics-and-Effecient-Energy-Use.pdf" target="_blank" rel="noopener noreferrer" class="prov-link">https://www.addu.edu.ph/wp-content/uploads/2019/11/2018-071-Policy-on-Single-Use-Plastics-and-Effecient-Energy-Use.pdf</a>
+            </li>
+            <li>
+              <b>Ecoteneo Environmental Program &amp; Campus Sustainability Practices (AdDU Student Services / iCARE):</b>
+              <span class="badge cat-research">Ateneo de Davao University (Ecoteneo)</span><br />
+              <a href="https://sites.google.com/addu.edu.ph/addupsgsicare/student-services/ecoteneo" target="_blank" rel="noopener noreferrer" class="prov-link">https://sites.google.com/addu.edu.ph/addupsgsicare/student-services/ecoteneo</a>
+            </li>
+            <li>
+              <b>Davao City Report on Waste Management Compliance (CENRO to Establishments: Update Solid Waste Management Plans):</b>
+              <span class="badge cat-official">City Government of Davao (CENRO)</span><br />
+              <a href="https://davaocity.gov.ph/sustainable-environment/cenro-to-establishments-update-solid-waste-management-plans/" target="_blank" rel="noopener noreferrer" class="prov-link">https://davaocity.gov.ph/sustainable-environment/cenro-to-establishments-update-solid-waste-management-plans/</a>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="method" class="method">
+        <div class="section-head" id="information">
+          <h2>Information, Data Provenance &amp; Mathematical Model</h2>
+          <p>Complete transparency separating <b>Official Statistics (OFFICIAL)</b>, <b>Peer-Reviewed Research (RESEARCH)</b>, and <b>Model Assumptions (ASSUMPTION)</b>. Unverified items are strictly excluded from active calculations.</p>
+        </div>
+
+        <div class="panel method-body">
+          <h3>1. Transparent Mathematical Formulas (透明數學推算公式)</h3>
+          <ul class="formula-list">
+            <li>
+              <b>Per-Visitor Provisional Baseline (單晚人均垃圾產生量暫定推估值 <code>0.085 kg/person</code>)：</b><br />
+              Anchored to 2025 New Taipei City official MSW generation (<code>1,919,573 t/yr ÷ 4,045,301 pop ÷ 365 d = 1.300 kg/person/day</code>), multiplied by <b>model assumptions</b> of average visitor stay duration (<code>3.5 h / 24 h</code>) and festival dining consumption factor (<code>0.45</code>) ⇒ <code>0.0850 kg/person/evening</code> (<code>cups: 0.0153</code>, <code>packaging: 0.0357</code>, <code>food: 0.0238</code>, <code>other: 0.0102 kg</code>). <em>Note: 3.5 h and 0.45 are explicit model assumptions, not official statistics.</em>
+            </li>
+            <li>
+              <b>Source Waste Reduction (源頭減量，措施互不重疊)：</b><br />
+              <code>G_cups = V × 0.0153 × [1 − reuse × (1 − cupReuseLoss)]</code>；<code>G_pkg = V × 0.0357 × (1 − packagingCut)</code>；<code>G_food = V × 0.0238</code>；<code>G_other = V × 0.0102</code>。<br />
+              <code>Total Waste Generated = G_cups + G_pkg + G_food + G_other</code>。<br />
+              <code>Source Reduction Rate (%) = (Baseline_Total − Scenario_Total) ÷ Baseline_Total × 100%</code>。
+            </li>
+            <li>
+              <b>Recycled &amp; Residual Waste Reduction (分類回收與最終殘餘垃圾減量)：</b><br />
+              <code>Recycled Waste = Σ (G_k × diversion_k)</code>；<code>Residual Waste = Total Waste Generated − Recycled Waste</code>。<br />
+              <code>Residual Reduction Rate (%) = (Baseline_Residual − Scenario_Residual) ÷ Baseline_Residual × 100%</code>（統一以正數表示減量率）。
+            </li>
+            <li>
+              <b>Station Capacity, Overflow &amp; Litter Waste (垃圾站容量、滿溢量與地面散落量)：</b><br />
+              <code>Station Capacity (kg/pickup) = stationVolumeL × bulkDensityKgPerL × compactionRatio</code>（其中 <code>0.065 kg/L</code> 密度與 <code>2.5× / 3.0×</code> 壓縮倍率標示為待校準模型假設）。<br />
+              <code>Peak Fill = (stationLoadKg ÷ collections) × peakFactor ÷ Station Capacity</code>；<code>Overflow Waste = Σ max(0, stationLoadKg × peakFactor − Station Capacity × collections) ÷ peakFactor</code>；<code>Litter Waste = Total Waste Generated − Captured Waste</code>。
+            </li>
+          </ul>
+
+          <div class="info-filter-bar">
+            <h3>2. Verified Data Sources &amp; Provenance Registry (資料來源、審查狀態與使用限制總表)</h3>
+            <div class="filter-btns">
+              <button class="btn small active" data-filter="ALL">All (<span id="cnt-all">0</span>)</button>
+              <button class="btn small ghost" data-filter="OFFICIAL">Official Statistics (12)</button>
+              <button class="btn small ghost" data-filter="RESEARCH">Research Literature (3)</button>
+              <button class="btn small ghost" data-filter="ASSUMPTION">Model Assumptions (3)</button>
+              <button class="btn small ghost" data-filter="UNVERIFIED">Unverified / Excluded (2)</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="prov-table" id="provenance-table">
+              <thead>
+                <tr>
+                  <th>數據名稱 / ID</th>
+                  <th>實際數值與單位</th>
+                  <th>統計年份</th>
+                  <th>發布機關 / 來源分類</th>
+                  <th>審查狀態 / 是否為假設</th>
+                  <th>原始網址</th>
+                  <th>使用限制與模型角色</th>
+                </tr>
+              </thead>
+              <tbody id="provenance-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>Smart Christmasland · Data-Anchored Festival Waste Simulator · Map © OpenStreetMap contributors, tiles by OpenFreeMap · Official data from MOENV &amp; New Taipei City Government; scenario projections are model estimates.</p>
+    </footer>
+
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="js/data-sources.js"></script>
+    <script src="js/model.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
